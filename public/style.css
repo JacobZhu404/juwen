@@ -1,0 +1,99 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  display: flex; flex-direction: column;
+  background: #f5f6f8; color: #1f2329;
+}
+
+header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 16px; background: #fff; border-bottom: 1px solid #e5e6eb;
+}
+header h1 { font-size: 16px; margin: 0; }
+#status-bar { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+#copy-all, #new-chat {
+  font-size: 12px; border: 1px solid #165dff; background: #fff; color: #165dff;
+  border-radius: 8px; padding: 5px 12px; cursor: pointer; white-space: nowrap;
+}
+#copy-all:hover, #new-chat:hover { background: #165dff; color: #fff; }
+#new-chat:disabled { opacity: 0.5; cursor: default; }
+.status-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 3px 8px; border-radius: 12px;
+  background: #f2f3f5; border: 1px solid #e5e6eb;
+}
+.status-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #c9cdd4; }
+.status-chip.on .dot { background: #00b42a; }
+.status-chip button {
+  font-size: 11px; border: none; background: #165dff; color: #fff;
+  border-radius: 6px; padding: 2px 8px; cursor: pointer;
+}
+.status-chip.on button { background: #e5e6eb; color: #4e5969; }
+.status-chip input[type="checkbox"] { margin: 0; cursor: pointer; }
+.status-chip.off { opacity: 0.45; }
+
+main { flex: 1; overflow: hidden; padding: 12px; }
+#columns {
+  display: grid; gap: 12px; height: 100%;
+  grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr);
+  overflow-x: auto;
+}
+.col {
+  background: #fff; border: 1px solid #e5e6eb; border-radius: 10px;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.col-head {
+  padding: 8px 12px; border-bottom: 1px solid #f0f1f3;
+  font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;
+}
+.col-head .spinner {
+  width: 12px; height: 12px; border: 2px solid #c9cdd4; border-top-color: #165dff;
+  border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+}
+.col.running .col-head .spinner { display: inline-block; }
+.col-head .copy-btn {
+  margin-left: auto; font-size: 11px; border: 1px solid #e5e6eb; background: #f7f8fa;
+  color: #4e5969; border-radius: 6px; padding: 2px 8px; cursor: pointer; font-weight: 400;
+}
+.col-head .copy-btn:hover { background: #e8f3ff; border-color: #165dff; color: #165dff; }
+.col-head .copy-btn.copied { background: #00b42a; border-color: #00b42a; color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.col-body {
+  flex: 1; overflow-y: auto; padding: 10px;
+  font-size: 13px; line-height: 1.6;
+}
+/* One question+answer round inside a column's scrollable transcript. */
+.turn { margin-bottom: 12px; }
+.turn:last-child { margin-bottom: 0; }
+.turn-q {
+  background: #eef3ff; border: 1px solid #d6e4ff; color: #1f2329;
+  border-radius: 8px; padding: 6px 10px; margin-bottom: 6px;
+  white-space: pre-wrap; word-break: break-word; font-size: 12px;
+}
+.turn-a {
+  white-space: pre-wrap; word-break: break-word;
+  padding: 2px 2px;
+}
+.turn-a.error { color: #f53f3f; }
+.turn-meta { margin-top: 4px; display: flex; align-items: center; gap: 8px; font-size: 11px; color: #86909c; }
+.turn-meta .meta-text { flex: 1; min-width: 0; }
+.retry-btn, .refresh-btn {
+  font-size: 11px; border: 1px solid #e5e6eb; background: #f7f8fa; color: #4e5969;
+  border-radius: 6px; padding: 1px 8px; cursor: pointer; white-space: nowrap;
+}
+.retry-btn:hover, .refresh-btn:hover { background: #e8f3ff; border-color: #165dff; color: #165dff; }
+
+footer {
+  display: flex; gap: 10px; padding: 12px 16px;
+  background: #fff; border-top: 1px solid #e5e6eb;
+}
+#prompt {
+  flex: 1; resize: none; border: 1px solid #e5e6eb; border-radius: 8px;
+  padding: 10px; font: inherit; font-size: 14px;
+}
+#send {
+  padding: 0 24px; border: none; border-radius: 8px; background: #165dff;
+  color: #fff; font-size: 14px; cursor: pointer;
+}
+#send:disabled { background: #94bfff; cursor: not-allowed; }

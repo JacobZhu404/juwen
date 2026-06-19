@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>聚问 · 大模型聚合对比</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>聚问<span style="font-weight:400;color:#86909c;font-size:13px;margin-left:8px;">大模型聚合对比</span></h1>
+    <div id="status-bar"></div>
+    <button id="new-chat" title="清空历史并为所有模型开启全新对话">新对话</button>
+    <button id="copy-all" title="复制所有已启用模型的最新回答">复制全部</button>
+  </header>
+
+  <main>
+    <section id="columns"></section>
+  </main>
+
+  <footer>
+    <textarea id="prompt" rows="2" placeholder="输入问题，Shift+回车发送给所有已启用模型（回车换行）"></textarea>
+    <button id="send">发送</button>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
