@@ -125,6 +125,25 @@ function retry(roundId, id) {
   ws.send(JSON.stringify({ type: 'ask', prompt: round.q, models: [id] }));
 }
 
+// Re-scrape the latest round's on-page answer for every enabled model that
+// participated in it (no re-submit).
+function refreshAll() {
+  const round = history[history.length - 1];
+  if (!round) return;
+  for (const m of models) {
+    if (enabled.has(m.id) && round.answers[m.id]) refresh(round.id, m.id);
+  }
+}
+
+// Re-send the latest round's question to every enabled model.
+function retryAll() {
+  const round = history[history.length - 1];
+  if (!round) return;
+  for (const m of models) {
+    if (enabled.has(m.id)) retry(round.id, m.id);
+  }
+}
+
 function metaFor(a) {
   if (a.status === 'running') return '生成中…';
   if (a.status === 'error') return '出错';
@@ -190,9 +209,19 @@ async function refreshStatus() {
   const byId = Object.fromEntries(status.map((s) => [s.id, s.loggedIn]));
   const bar = document.getElementById('status-bar');
   bar.innerHTML = '';
-  for (const m of models) {
+  // Active models first (so the front row stays useful even when many are disabled);
+  // inactive models render after a divider so they wrap to a second line if needed.
+  const sorted = [...models].sort((a, b) => (enabled.has(b.id) - enabled.has(a.id)));
+  let inactiveStarted = false;
+  for (const m of sorted) {
     const on = byId[m.id];
     const active = enabled.has(m.id);
+    if (!active && !inactiveStarted) {
+      const sep = document.createElement('span');
+      sep.className = 'chip-sep';
+      bar.appendChild(sep);
+      inactiveStarted = true;
+    }
     const chip = document.createElement('span');
     chip.className = 'status-chip' + (on ? ' on' : '') + (active ? '' : ' off');
     chip.innerHTML = `<input type="checkbox" ${active ? 'checked' : ''} title="启用/停用">
@@ -296,6 +325,8 @@ function send() {
 document.getElementById('send').onclick = send;
 document.getElementById('copy-all').onclick = (e) => copyAll(e.currentTarget);
 document.getElementById('new-chat').onclick = (e) => newChat(e.currentTarget);
+document.getElementById('refresh-all').onclick = () => refreshAll();
+document.getElementById('retry-all').onclick = () => retryAll();
 // Enter = newline (default textarea behavior); Shift+Enter = send.
 document.getElementById('prompt').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); send(); }

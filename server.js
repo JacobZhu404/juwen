@@ -24,15 +24,17 @@ app.get('/api/models', (_req, res) => {
   res.json(adapters.map((a) => ({ id: a.id, name: a.name, homeUrl: a.homeUrl })));
 });
 
-// Login status for every model.
+// Login status for every model. Side-effect free: only inspects pages that
+// are already open. Polling this endpoint must never cause Chrome to open a
+// new tab — sites are opened on demand by 登录 / 提问 / 新对话 instead.
 app.get('/api/status', async (_req, res) => {
   const out = [];
   for (const a of adapters) {
+    const page = browserManager.getCachedPage(a.id);
     let loggedIn = false;
-    try {
-      const page = await browserManager.getPage(a.id, a.homeUrl);
-      loggedIn = await a.isLoggedIn(page);
-    } catch { /* ignore, report not-logged-in */ }
+    if (page) {
+      try { loggedIn = await a.isLoggedIn(page); } catch { /* ignore */ }
+    }
     out.push({ id: a.id, loggedIn });
   }
   res.json(out);

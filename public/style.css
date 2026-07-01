@@ -11,27 +11,38 @@ header {
   padding: 10px 16px; background: #fff; border-bottom: 1px solid #e5e6eb;
 }
 header h1 { font-size: 16px; margin: 0; }
-#status-bar { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
-#copy-all, #new-chat {
+#status-bar { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; min-width: 0; }
+/* Divider between active and inactive chips — pushes inactive chips to the
+   end of the row (or onto a second line) so the active set stays prominent. */
+.chip-sep { flex-basis: 100%; height: 0; }
+@media (min-width: 1400px) { .chip-sep { flex-basis: 16px; height: auto; border-left: 1px dashed #e5e6eb; margin: 0 4px; align-self: stretch; } }
+#copy-all, #new-chat, #refresh-all, #retry-all {
   font-size: 12px; border: 1px solid #165dff; background: #fff; color: #165dff;
   border-radius: 8px; padding: 5px 12px; cursor: pointer; white-space: nowrap;
 }
-#copy-all:hover, #new-chat:hover { background: #165dff; color: #fff; }
-#new-chat:disabled { opacity: 0.5; cursor: default; }
+#copy-all:hover, #new-chat:hover, #refresh-all:hover, #retry-all:hover { background: #165dff; color: #fff; }
+#new-chat:disabled, #refresh-all:disabled, #retry-all:disabled { opacity: 0.5; cursor: default; }
 .status-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; padding: 3px 8px; border-radius: 12px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; padding: 2px 7px; border-radius: 12px;
   background: #f2f3f5; border: 1px solid #e5e6eb;
+  white-space: nowrap;
 }
 .status-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #c9cdd4; }
 .status-chip.on .dot { background: #00b42a; }
 .status-chip button {
   font-size: 11px; border: none; background: #165dff; color: #fff;
-  border-radius: 6px; padding: 2px 8px; cursor: pointer;
+  border-radius: 6px; padding: 1px 7px; cursor: pointer;
 }
 .status-chip.on button { background: #e5e6eb; color: #4e5969; }
 .status-chip input[type="checkbox"] { margin: 0; cursor: pointer; }
-.status-chip.off { opacity: 0.45; }
+/* Inactive chips: smaller, lower visual weight, login button hidden to save
+   row space — they're just selectors at this point, not actionable rows. */
+.status-chip.off {
+  opacity: 0.55; padding: 1px 6px; font-size: 11px;
+}
+.status-chip.off button { display: none; }
+.status-chip.off .dot { display: none; }
 
 main { flex: 1; overflow: hidden; padding: 12px; }
 #columns {
