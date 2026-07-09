@@ -4,7 +4,7 @@ import { Adapter } from './base.js';
 export default new Adapter({
   id: 'wenxin',
   name: '文心',
-  homeUrl: 'https://yiyan.baidu.com/',
+  homeUrl: 'https://chat.baidu.com/?enter_type=yiyan_site',
   stableMs: 3000,
   maxMs: 300000, // long detailed answers can take well over 2 min; was 120000
   genGraceMs: 10000, // bridge deep-thinking pauses before finalizing

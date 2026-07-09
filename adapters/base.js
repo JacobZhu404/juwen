@@ -166,6 +166,14 @@ export class Adapter {
           throw new Error('检测到人机验证，请在弹出的浏览器窗口里完成验证后重试');
         }
       }
+      // Marketing / feature-promotion modal blocks the chat UI.
+      if (this.selectors.popup) {
+        const p = await page.$(this.selectors.popup);
+        if (p && await p.isVisible().catch(() => false)) {
+          await page.bringToFront().catch(() => {});
+          throw new Error(`${this.name}弹窗出现，请手动关闭后重试`);
+        }
+      }
       throw new Error('无法填入输入框' + (lastErr ? `（${lastErr}）` : ''));
     }
 

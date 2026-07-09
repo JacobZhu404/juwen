@@ -25,5 +25,7 @@ export default new Adapter({
     generating: '[class*="animate-spin"]',
     newChat: '[class*="new-chat"], [class*="newChat"]',
     loggedOut: null,
+    // Marketing modal that blocks the chat UI; user must dismiss it manually.
+    popup: 'text=MiMo Claw',
   },
 });
