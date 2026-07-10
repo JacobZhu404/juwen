@@ -11,7 +11,11 @@ export default new Adapter({
   selectors: {
     input: 'div[contenteditable="true"], textarea',
     submit: null, // Enter submits
-    response: '.md-stream-desktop', // final-answer node; excludes the deep-thinking trace
+    // chat.baidu.com renders each reply's markdown in .cosd-markdown, wrapped by
+    // .answer-container (the old .md-stream-desktop node is gone). Scoping to
+    // .answer-container keeps us to answers only — never the question bubble or
+    // the deep-thinking trace. streamResponse takes the last match = newest reply.
+    response: '.answer-container .cosd-markdown',
     newChat: '[class*="new-chat"], [class*="newChat"], [class*="new_dialog"]',
     generating: '[class*="stop"], [class*="generating"]',
     // Baidu passport login modal: the phone-verification form only renders when
