@@ -94,7 +94,7 @@ app.get('/api/inspect/:id', async (req, res) => {
         testid: el.getAttribute && el.getAttribute('data-testid') || undefined,
         visible: el.offsetParent !== null,
       });
-      const inputs = [...document.querySelectorAll('textarea, div[contenteditable="true"]')].map(d);
+      const inputs = [...document.querySelectorAll('textarea, div[contenteditable="true"], input[type="text"]')].map(d);
       const buttons = [...document.querySelectorAll('button, [role="button"]')]
         .filter((e) => e.offsetParent !== null).slice(0, 60)
         .map((e) => { const r = e.getBoundingClientRect();
@@ -107,10 +107,40 @@ app.get('/api/inspect/:id', async (req, res) => {
         .map((o) => ({ ...d(o.el), len: o.len, snippet: (o.el.innerText || '').replace(/\s+/g, ' ').slice(0, 70) }));
       return { url: location.href, inputs, buttons, blocks };
     });
+    // Also inspect iframes: many chat widgets (FinSphere?) live in a separate frame.
+    let iframeInfo = [];
+    const frames = page.frames();
+    for (let i = 0; i < frames.length; i++) {
+      const f = frames[i];
+      try {
+        const fi = await f.evaluate(() => {
+          const d = (el) => ({
+            tag: el.tagName.toLowerCase(),
+            cls: (el.className || '').toString().slice(0, 140),
+            id: el.id || undefined,
+            ph: el.getAttribute && el.getAttribute('placeholder') || undefined,
+            testid: el.getAttribute && el.getAttribute('data-testid') || undefined,
+            visible: el.offsetParent !== null,
+          });
+          const inputs = [...document.querySelectorAll('textarea, div[contenteditable="true"], input[type="text"]')].map(d);
+          const buttons = [...document.querySelectorAll('button, [role="button"]')]
+            .filter((e) => e.offsetParent !== null).slice(0, 30)
+            .map((e) => { const r = e.getBoundingClientRect();
+              return { ...d(e), text: (e.innerText || '').trim().slice(0, 16),
+                x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; });
+          return { url: location.href, inputs, buttons };
+        });
+        iframeInfo.push({ index: i, ...fi });
+      } catch (e) { iframeInfo.push({ index: i, error: String(e?.message || e) }); }
+    }
+    info.iframeInfo = iframeInfo;
+    // When the adapter's chat DOM lives in an iframe, run selector probes and
+    // reverse-lookups against that frame (falls back to the page otherwise).
+    const surface = (typeof a._content === 'function') ? await a._content(page) : page;
     // Probe candidate response selectors: report match count + last match text.
     let probes;
     if (req.query.sel) {
-      probes = await page.evaluate((sels) => sels.map((s) => {
+      probes = await surface.evaluate((sels) => sels.map((s) => {
         let nodes = [];
         try { nodes = [...document.querySelectorAll(s)]; } catch { return { sel: s, error: 'bad' }; }
         const withText = nodes.filter((n) => (n.innerText || '').trim().length > 0);
@@ -124,7 +154,7 @@ app.get('/api/inspect/:id', async (req, res) => {
     // revealing the real answer-node tag/class on hashed-class sites.
     let finds;
     if (req.query.find) {
-      finds = await page.evaluate((needle) => {
+      finds = await surface.evaluate((needle) => {
         return [...document.querySelectorAll('*')]
           .filter((el) => (el.innerText || '').includes(needle))
           .map((el) => ({ tag: el.tagName.toLowerCase(), cls: (el.className || '').toString().slice(0, 160),

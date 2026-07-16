@@ -13,15 +13,44 @@ export class Adapter {
     this.homeUrl = config.homeUrl;
     this.selectors = config.selectors;
     this.submitKey = config.submitKey || 'Enter';
+    // Some sites (九方灵犀) render the whole chat UI inside a cross-origin
+    // iframe; the main document is just a shell. When frameUrlPattern is set we
+    // resolve the matching child frame and run every element query/evaluate
+    // against it. Navigation (goto/bringToFront) and keyboard input stay on the
+    // top page — keyboard events reach whatever element is focused, including
+    // one inside the frame. When unset, _content() returns the page unchanged,
+    // so every other adapter behaves exactly as before.
+    this.frameUrlPattern = config.frameUrlPattern || null;
     this.config = config;
+  }
+
+  // Resolve the surface that holds the chat DOM: the matching iframe when
+  // frameUrlPattern is configured, otherwise the page itself. Polls briefly
+  // because the frame attaches asynchronously after navigation.
+  async _content(page) {
+    if (!this.frameUrlPattern) return page;
+    for (let i = 0; i < 40; i++) {
+      const f = page.frames().find((fr) => (fr.url() || '').includes(this.frameUrlPattern));
+      if (f) return f;
+      await page.waitForTimeout(250);
+    }
+    return page; // fall back to page so callers still get a usable surface
   }
 
   // Logged in if the prompt input is present and a known "login" affordance is not.
   async isLoggedIn(page) {
-    const input = await page.$(this.selectors.input);
+    const ctx = await this._content(page);
+    let input = await ctx.$(this.selectors.input);
+    // iframe-hosted SPAs (九方灵犀) can still be hydrating right after
+    // navigation, so the textarea isn't in the DOM the instant the ask handler
+    // gates on login. Give it a brief wait — only for frame adapters, so
+    // ordinary sites' status checks stay instant.
+    if (!input && this.frameUrlPattern) {
+      input = await ctx.waitForSelector(this.selectors.input, { timeout: 8000 }).catch(() => null);
+    }
     if (!input) return false;
     if (this.selectors.loggedOut) {
-      const out = await page.$(this.selectors.loggedOut);
+      const out = await ctx.$(this.selectors.loggedOut);
       if (out) return false;
     }
     return true;
@@ -34,12 +63,14 @@ export class Adapter {
   // context is fine; streamResponse uses a baseline so it won't re-emit the
   // previous turn's answer.
   async openConversation(page) {
-    const ready = await page.$(this.selectors.input).then((el) => !!el).catch(() => false);
+    const ctx0 = await this._content(page);
+    const ready = await ctx0.$(this.selectors.input).then((el) => !!el).catch(() => false);
     if (ready) return;
     try {
       await page.goto(this.homeUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     } catch { /* continue; selector wait below will guard */ }
-    await page.waitForSelector(this.selectors.input, { timeout: 20000 });
+    const ctx = await this._content(page);
+    await ctx.waitForSelector(this.selectors.input, { timeout: 20000 });
   }
 
   // Explicitly start a brand-new conversation (drops carried-over context).
@@ -48,14 +79,15 @@ export class Adapter {
     try {
       await page.goto(this.homeUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     } catch { /* continue; selector wait below will guard */ }
+    const ctx = await this._content(page);
     if (this.selectors.newChat) {
-      const btn = await page.$(this.selectors.newChat);
+      const btn = await ctx.$(this.selectors.newChat);
       if (btn && await btn.isVisible().catch(() => false)) {
         await btn.click({ timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(800);
       }
     }
-    await page.waitForSelector(this.selectors.input, { timeout: 20000 }).catch(() => {});
+    await ctx.waitForSelector(this.selectors.input, { timeout: 20000 }).catch(() => {});
   }
 
   // Snapshot of the current answers: the last-response text plus how many
@@ -65,8 +97,9 @@ export class Adapter {
   // when retrying the same question) is still recognised via the node count.
   async responseBaseline(page) {
     const sel = this.selectors.response;
+    const ctx = await this._content(page);
     try {
-      return await page.evaluate((s) => {
+      return await ctx.evaluate((s) => {
         const nodes = [...document.querySelectorAll(s)].filter((n) => (n.innerText || '').trim().length > 0);
         return { text: nodes.length ? (nodes[nodes.length - 1].innerText || '') : '', count: nodes.length };
       }, sel);
@@ -106,7 +139,8 @@ export class Adapter {
 
   async submitPrompt(page, prompt) {
     const sel = this.selectors.input;
-    await page.waitForSelector(sel, { timeout: 20000 });
+    const ctx = await this._content(page);
+    await ctx.waitForSelector(sel, { timeout: 20000 });
     // Distinctive end-of-prompt marker, whitespace-stripped so it survives
     // editors that reflow newlines into <p>/<br> (元宝's Quill) — comparing raw
     // text would spuriously fail on the literal "\n" inside the tail.
@@ -119,7 +153,7 @@ export class Adapter {
     let filled = false;
     let lastErr = '';
     for (let i = 0; i < 4 && !filled; i++) {
-      const input = await this.pickInput(page, sel);
+      const input = await this.pickInput(ctx, sel);
       if (!input) { await page.waitForTimeout(200); continue; }
       try {
         await input.click({ timeout: 4000 });
@@ -160,7 +194,7 @@ export class Adapter {
       // every click. Surface a clear instruction and pop the tab forward so the
       // user can solve it, instead of the opaque "couldn't fill" error.
       if (this.selectors.verify) {
-        const v = await page.$(this.selectors.verify);
+        const v = await ctx.$(this.selectors.verify);
         if (v && await v.isVisible().catch(() => false)) {
           await page.bringToFront().catch(() => {});
           throw new Error('检测到人机验证，请在弹出的浏览器窗口里完成验证后重试');
@@ -168,7 +202,7 @@ export class Adapter {
       }
       // Marketing / feature-promotion modal blocks the chat UI.
       if (this.selectors.popup) {
-        const p = await page.$(this.selectors.popup);
+        const p = await ctx.$(this.selectors.popup);
         if (p && await p.isVisible().catch(() => false)) {
           await page.bringToFront().catch(() => {});
           throw new Error(`${this.name}弹窗出现，请手动关闭后重试`);
@@ -181,7 +215,7 @@ export class Adapter {
     await page.waitForTimeout(200);
 
     if (this.selectors.submit) {
-      const send = await page.$(this.selectors.submit);
+      const send = await ctx.$(this.selectors.submit);
       if (send && await send.isVisible().catch(() => false)) {
         const ok = await send.click({ timeout: 5000 }).then(() => true).catch(() => false);
         if (ok) return;
@@ -195,6 +229,7 @@ export class Adapter {
   // when `maxMs` elapses.
   async streamResponse(page, onDelta, { stableMs = 2500, maxMs = 120000, baseline = '', baselineCount = 0, genGraceMs = 8000 } = {}) {
     const sel = this.selectors.response;
+    const ctx = await this._content(page);
     const start = Date.now();
     let last = '';
     let lastChange = Date.now();
@@ -206,7 +241,7 @@ export class Adapter {
       let text = '';
       let count = 0;
       try {
-        const snap = await page.evaluate((s) => {
+        const snap = await ctx.evaluate((s) => {
           const nodes = [...document.querySelectorAll(s)].filter((n) => (n.innerText || '').trim().length > 0);
           return { text: nodes.length ? (nodes[nodes.length - 1].innerText || '') : '', count: nodes.length };
         }, sel);
@@ -238,7 +273,7 @@ export class Adapter {
       // stay gone for genGraceMs, which bridges those gaps instead of
       // finalizing on the user-visible "searching…" pause.
       if (this.selectors.generating) {
-        const gen = await page.$(this.selectors.generating);
+        const gen = await ctx.$(this.selectors.generating);
         if (gen) { everGen = true; genGoneSince = 0; }
         else if (genGoneSince === 0) { genGoneSince = Date.now(); }
       }
@@ -289,7 +324,8 @@ export class Adapter {
     // silently streaming an empty answer.
     if (this.selectors.loggedOut) {
       await page.waitForTimeout(800);
-      const wall = await page.$(this.selectors.loggedOut);
+      const wallCtx = await this._content(page);
+      const wall = await wallCtx.$(this.selectors.loggedOut);
       if (wall && await wall.isVisible().catch(() => false)) {
         throw new Error('登录已失效，请点击该模型的「登录」按钮重新登录');
       }
